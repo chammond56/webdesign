@@ -1,0 +1,10 @@
+body{
+    font-family: Georgia, 'Times New Roman', Times, serif;
+    background-color:floralwhite;
+}
+h1, h2, h3, .subheading{
+    font-family: Georgia, 'Times New Roman', Times, serif !important;
+}
+a:hover{
+    color:rgb(68, 255, 0) !important
+}

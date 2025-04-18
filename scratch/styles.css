@@ -1,0 +1,35 @@
+/* General Body Styles */
+body {
+    /* Using a clean sans-serif font */
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    /* Light grey background for a clean look */
+    background-color: #f4f7f6;
+    /* Removing the background image for simplicity, can be added back if needed */
+    /* background-image: url("../assets/img/home-bg.jpg"); */
+    /* background-repeat: no-repeat; */
+    /* background-size: cover; */
+    /* Dark grey text for good readability */
+    color: #333;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+
+/* Link Styles - Making them look like distinct buttons/nav items */
+a {
+    /* A professional blue for links */
+    color: #0056b3;
+    /* Light background for contrast, slight transparency */
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 6px 12px; /* Slightly adjusted padding */
+    border-radius: 4px; /* Slightly smaller radius */
+    text-decoration: none;
+    /* Subtle border */
+    border: 1px solid #ddd;
+    transition: all 0.3s ease;
+    /* Prevents inline links from breaking lines awkwardly */
+    display: inline-block;
+    margin: 2px; /* Add small margin for spacing if links wrap */
+}
+
+/* Link Hover State

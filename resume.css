@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calvin M. Hammond - Resume</title>
+    <style>
+        /* Basic CSS for layout - customize this! */
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            line-height: 1.4;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .headshot {
+            width: 150px; /* Adjust as needed */
+            height: 150px;
+            border-radius: 50%; /* Creates a circular shape */
+            object-fit: cover; /* Ensures image fills the space */
+            margin-bottom: 10px;
+        }
+        .section-title {
+            border-bottom: 2px solid #000;
+            padding-bottom: 5px;
+            margin-top: 20px;
+        }
+        .job-title {
+            font-weight: bold;
+        }
+        .company {
+            font-style: italic;
+        }
+        .location-date {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .coursework {
+            margin-top: 5px;
+        }
+        .skills-list {
+            list-style-type: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .skills-list li {
+            border: 1px solid #ccc;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+    <img src="imageheadshot" alt="headshot" height="500px">

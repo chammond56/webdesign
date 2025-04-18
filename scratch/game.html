@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Stock Trader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Custom Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark gray-blue background */
+            color: #e2e8f0; /* Light text */
+        }
+        /* Style for price changes */
+        .price-up { color: #48bb78; } /* Green */
+        .price-down { color: #f56565; } /* Red */
+        .price-neutral { color: #a0aec0; } /* Gray */
+
+        /* News pop-up basic style */
+        #news-popup {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #2d3748; /* Darker gray */
+            color: #e2e8f0;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+            text-align: center;
+            min-width: 300px;
+            max-width: 80%;
+            border: 1px solid #4a5568;
+        }
+        #news-popup.hidden { display: none; }
+        #reaction-timer {
+            height: 5px;
+            background-color: #4299e1; /* Blue */
+            width: 100%;
+            transition: width 0.1s linear; /* Smooth timer decrease */
+            margin-top: 10px;
+            border-radius: 3px;
+        }
+        /* Button styling */
+        button {
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        button:hover:not(:disabled) { /* Don't apply hover effect when disabled */
+             filter: brightness(1.1);
+        }
+         button:active:not(:disabled) { /* Don't apply active effect when disabled */
+             transform: scale(0.98);
+         }
+         /* Input number styling */
+         input[type=number]::-webkit-inner-spin-button,
+         input[type=number]::-webkit-outer-spin-button {
+           -webkit-appearance: none;
+           margin: 0;
+         }
+         input[type=number] {
+           -moz-appearance: textfield; /* Firefox */
+           background-color: #2d3748;
+           border: 1px solid #4a5568;
+           color: #e2e8f0;
+           padding: 0.5rem;
+           border-radius: 0.375rem; /* rounded-md */
+         }
+         /* Tab styling */
+        .tab-button {
+            padding: 8px 16px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: #a0aec0; /* Gray */
+        }
+        .tab-button.active {
+            color: #63b3ed; /* Blue */
+            border-bottom-color: #63b3ed;
+            font-weight: 600;
+        }
+        .tab-button:hover:not(.active) {
+             color: #e2e8f0; /* Lighter gray */
+        }
+        /* Chart container */
+        #chart-container {
+            height: 250px; /* Adjust height as needed */
+            background-color: #2d3748;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 1.5rem; /* mb-6 */
+        }
+        /* Instructions list styling */
+        #instructions-screen ul {
+            list-style-position: inside;
+            margin-left: 1rem;
+            margin-bottom: 1rem;
+        }
+         #instructions-screen li {
+            margin-bottom: 0.5rem;
+         }
+         #instructions-screen strong {
+            color: #a0aec0; /* Slightly lighter gray for emphasis */
+         }
+         #instructions-screen kbd { /* Style keyboard keys */
+            background-color: #4a5568;
+            border-radius: 3px;
+            border: 1px solid #2d3748;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+            color: #e2e8f0;
+            font-family: monospace;
+            font-size: 0.85em;
+            font-weight: 700;
+            line-height: 1;
+            margin: 0 0.1em;
+            padding: 0.2em 0.4em;
+            text-shadow: 0 1px 0 #000;
+         }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div id="game-container" class="w-full max-w-5xl p-6 bg-gray-800 rounded-lg shadow-xl">
+
+        <div id="instructions-screen">
+            <h1 class="text-3xl font-bold text-center mb-6 text-white">Welcome to Stock Trader Pro!</h1>
+            <div class="text-gray-300 space-y-4 mb-6 px-4">
+                <p>Your goal is to make as much profit as possible by trading stocks.</p>
+                <h2 class="text-xl font-semibold text-blue-300 pt-2">How to Play:</h2>
+                <ul>
+                    <li>Select a difficulty level. Higher levels introduce more stocks, faster news reactions, more random price swings, and short selling.</li>
+                    <li>Use the tabs (on Medium/Hard) or <kbd>←</kbd> / <kbd>→</kbd> arrow keys to switch between active stocks.</li>
+                    <li>Monitor the stock price chart and the current price.</li>
+                    <li>Enter a quantity and use the action buttons (or keyboard shortcuts) to trade the selected stock.</li>
+                    <li>Watch out for news pop-ups! They predict market moves. React quickly before the timer runs out.</li>
+                    <li>Your total profit increases market volatility – higher risk, higher reward!</li>
+                </ul>
+                 <h2 class="text-xl font-semibold text-yellow-300 pt-2">Key Terms:</h2>
+                 <ul>
+                    <li><strong>Buy:</strong> Purchase shares hoping the price will increase. (<kbd>B</kbd> key)</li>
+                    <li><strong>Sell:</strong> Sell shares you own to take profit or cut losses. (<kbd>S</kbd> key)</li>
+                    <li><strong>Short Selling (Levels 2 & 3):</strong> Borrow shares and immediately sell them, hoping the price will <strong class="text-red-400">decrease</strong>. You profit from the price drop when you buy them back later. (<kbd>H</kbd> key)</li>
+                    <li><strong>Cover Short (Levels 2 & 3):</strong> Buy back the shares you previously shorted to close your position. You need enough cash to buy them back at the current price. (<kbd>C</kbd> key)</li>
+                    <li><strong>Sell All / Cover All:</strong> Use the buttons to quickly close your entire position for the selected stock.</li>
+                 </ul>
+                 <p class="text-sm italic">(Note: Keyboard shortcuts <kbd>B</kbd>, <kbd>S</kbd>, <kbd>H</kbd>, <kbd>C</kbd> won't work if the quantity input field is selected.)</p>
+                 <p>Good luck, trader!</p>
+            </div>
+            <div class="text-center">
+                <button onclick="showDifficultyScreen()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow text-lg">
+                    Let's Trade!
+                </button>
+            </div>
+        </div>
+
+
+        <div id="difficulty-screen" class="hidden">
+            <h1 class="text-3xl font-bold text-center mb-6 text-white">Select Difficulty</h1>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                 <!-- {/* Updated reaction times in descriptions */} -->
+                <button onclick="startGame(1)" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow">
+                    Level 1: Easy<br><small>(1 Stock, Buy/Sell, 5s React, Low Volatility)</small>
+                </button>
+                <button onclick="startGame(2)" class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-lg shadow">
+                    Level 2: Medium<br><small>(2 Stocks, Buy/Sell/Short, 4s React, Med Volatility)</small>
+                </button>
+                <button onclick="startGame(3)" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg shadow">
+                    Level 3: Hard<br><small>(3 Stocks, Buy/Sell/Short, 3s React, High Volatility)</small>
+                </button>
+            </div>
+        </div>
+
+        <div id="game-screen" class="hidden">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-3">
+                 <h1 class="text-2xl font-bold text-white">Stock Trader Pro</h1>
+                 <button onclick="showInstructionsScreen()" class="bg-gray-600 hover:bg-gray-700 text-white text-sm py-1 px-3 rounded-md">Instructions / Change Level</button>
+            </div>
+
+            <div id="stock-tabs" class="flex border-b border-gray-700 mb-4">
+                </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="md:col-span-1 p-4 bg-gray-700 rounded-lg shadow">
+                    <h2 class="text-xl font-semibold mb-2 text-blue-300">Market: <span id="active-stock-name">TECH</span></h2>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-3xl font-bold text-white" id="stock-price">$100.00</span>
+                        <span class="text-lg font-medium text-right" id="price-change">+0.00 (+0.00%)</span>
+                    </div>
+                     <!-- {/* Comment definitively removed from this line */} -->
+                     <p class="text-sm text-gray-400 mt-1">Profit Volatility Factor: <span id="volatility-display">1.0</span></p>
+                     <div id="active-short-info" class="mt-2 text-sm text-yellow-400 hidden">
+                        Shorted at average price: <span id="active-short-avg-price">$0.00</span>
+                     </div>
+                </div>
+                <div id="chart-container" class="md:col-span-2">
+                    <canvas id="stock-chart"></canvas>
+                </div>
+            </div>
+
+
+            <div class="mb-6 p-4 bg-gray-700 rounded-lg shadow">
+                 <h2 class="text-xl font-semibold mb-2 text-green-300">Your Overall Portfolio</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div>
+                        <span class="block text-sm text-gray-400">Cash</span>
+                        <span class="text-lg font-semibold text-white" id="player-cash">$10,000</span>
+                    </div>
+                     <div>
+                        <span class="block text-sm text-gray-400">Shares Owned (<span id="active-stock-shares-label">TECH</span>)</span>
+                        <span class="text-lg font-semibold text-white" id="player-shares-active">0</span>
+                    </div>
+                     <div>
+                        <span class="block text-sm text-gray-400">Shorted (<span id="active-stock-shorted-label">TECH</span>)</span>
+                        <span class="text-lg font-semibold text-white" id="player-shorted-active">0</span>
+                    </div>
+                    <div>
+                        <span class="block text-sm text-gray-400">Total Profit</span>
+                        <span class="text-lg font-semibold text-white" id="player-profit">$0</span>
+                    </div>
+                </div>
+                 </div>
+
+            <div class="mb-6 p-4 bg-gray-700 rounded-lg shadow">
+                 <h2 class="text-xl font-semibold mb-3 text-yellow-300">Trade Actions (<span id="active-stock-action-label">TECH</span>)</h2>
+                 <div class="flex flex-col md:flex-row items-center gap-4">
+                     <label for="trade-quantity" class="text-sm font-medium text-gray-300">Quantity:</label>
+                     <input type="number" id="trade-quantity" value="10" min="1" class="w-full md:w-24 px-3 py-1.5 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                     <div class="flex flex-wrap gap-2 mt-2 md:mt-0">
+                        <button onclick="buyShares()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md shadow">Buy (<kbd>B</kbd>)</button>
+                        <button onclick="sellShares()" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md shadow">Sell (<kbd>S</kbd>)</button>
+                        <button id="short-button" onclick="shortShares()" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-md shadow disabled:opacity-50 disabled:cursor-not-allowed">Short (<kbd>H</kbd>)</button>
+                        <button id="cover-button" onclick="coverShort()" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-md shadow disabled:opacity-50 disabled:cursor-not-allowed">Cover (<kbd>C</kbd>)</button>
+                        <button onclick="sellAllShares()" class="bg-red-700 hover:bg-red-800 text-white font-bold py-2 px-4 rounded-md shadow">Sell All</button>
+                        <button id="cover-all-button" onclick="coverAllShort()" class="bg-indigo-700 hover:bg-indigo-800 text-white font-bold py-2 px-4 rounded-md shadow disabled:opacity-50 disabled:cursor-not-allowed">Cover All</button>
+                     </div>
+                 </div>
+            </div>
+
+             <div class="h-24 overflow-y-auto p-3 bg-gray-900 rounded-lg border border-gray-700 text-sm" id="message-log">
+                <p class="text-gray-400">Game log messages will appear here...</p>
+            </div>
+
+        </div> <div id="news-popup" class="hidden">
+            <h3 class="text-lg font-semibold mb-2 text-yellow-200">Market News!</h3>
+            <p id="news-content" class="mb-3"></p>
+            <p class="text-sm text-gray-400 mb-1">Market reacts in <span id="react-time-left">3</span>s...</p>
+            <div id="reaction-timer-container" class="w-full bg-gray-600 rounded-full h-1.5">
+                 <div id="reaction-timer" class="bg-blue-500 h-1.5 rounded-full" style="width: 100%"></div>
+            </div>
+        </div>
+
+    </div> <script>
+        // --- Game State Variables ---
+        let difficulty = 1;
+        let cash = 10000;
+        let totalProfit = 0;
+        let gameInterval = null;
+        let newsTimeout = null;
+        let reactionTimerInterval = null;
+        let activeStockSymbol = 'TECH';
+        let stockChart = null;
+
+        // --- Stock Data ---
+        let stocks = {
+            'TECH': { name: 'TECH', currentPrice: 100.00, previousPrice: 100.00, history: [], sharesOwned: 0, shortedShares: 0, shortEntryPriceAvg: 0, profitVolatilityMultiplier: 1.0, trendBias: 0.03, baseVolatility: 0.5, isActive: false },
+            'AGRO': { name: 'AGRO', currentPrice: 50.00, previousPrice: 50.00, history: [], sharesOwned: 0, shortedShares: 0, shortEntryPriceAvg: 0, profitVolatilityMultiplier: 1.0, trendBias: 0.02, baseVolatility: 0.6, isActive: false },
+            'FIN': { name: 'FIN', currentPrice: 200.00, previousPrice: 200.00, history: [], sharesOwned: 0, shortedShares: 0, shortEntryPriceAvg: 0, profitVolatilityMultiplier: 1.0, trendBias: 0.01, baseVolatility: 0.7, isActive: false }
+        };
+        let activeStockSymbols = [];
+
+        // --- Difficulty Settings (Updated reactionTime) ---
+        const difficulties = {
+            1: { level: 1, reactionTime: 5000, allowShorting: false, name: "Easy", symbols: ['TECH'], volatilityMod: 0.7 }, // 5 seconds
+            2: { level: 2, reactionTime: 4000, allowShorting: true, name: "Medium", symbols: ['TECH', 'AGRO'], volatilityMod: 1.0 }, // 4 seconds
+            3: { level: 3, reactionTime: 3000, allowShorting: true, name: "Hard", symbols: ['TECH', 'AGRO', 'FIN'], volatilityMod: 1.5 } // 3 seconds
+        };
+
+        // --- News Events ---
+        const newsEvents = [
+             { text: "{STOCK} announces record profits, beating estimates!", impact: 1.07, type: 'positive' }, { text: "{STOCK} unveils groundbreaking new product line.", impact: 1.08, type: 'positive' }, { text: "Major competitor of {STOCK} exits the market.", impact: 1.06, type: 'positive' }, { text: "{STOCK} signs lucrative long-term government contract.", impact: 1.09, type: 'positive' }, { text: "Positive phase 3 trial results reported for {STOCK}'s key drug.", impact: 1.12, type: 'positive' }, { text: "Analyst upgrades {STOCK} rating to 'Strong Buy'.", impact: 1.04, type: 'positive' }, { text: "Positive economic outlook boosts market sentiment for {STOCK}.", impact: 1.03, type: 'positive' }, { text: "Rumors of acquisition talks involving {STOCK} intensify.", impact: 1.05, type: 'positive' }, { text: "{STOCK} announces successful cost-cutting measures.", impact: 1.03, type: 'positive' }, { text: "Favorable regulatory changes benefit {STOCK}'s industry.", impact: 1.04, type: 'positive' }, { text: "{STOCK} misses earnings expectations significantly.", impact: 0.93, type: 'negative' }, { text: "{STOCK} faces major product recall.", impact: 0.90, type: 'negative' }, { text: "Key executive departs {STOCK} amid controversy.", impact: 0.94, type: 'negative' }, { text: "{STOCK} hit with class-action lawsuit.", impact: 0.92, type: 'negative' }, { text: "Major data breach reported at {STOCK}.", impact: 0.88, type: 'negative' }, { text: "Analyst downgrades {STOCK} rating to 'Sell'.", impact: 0.96, type: 'negative' }, { text: "Increased competition pressures {STOCK}'s market share.", impact: 0.97, type: 'negative' }, { text: "Broader market experiences sharp downturn, affecting {STOCK}.", impact: 0.95, type: 'negative' }, { text: "Supply chain disruptions impact {STOCK}'s production.", impact: 0.96, type: 'negative' }, { text: "Unfavorable regulatory investigation launched into {STOCK}'s sector.", impact: 0.95, type: 'negative' }, { text: "Sector analysis report shows mixed outlook for {STOCK}'s industry.", impact: 1.01, type: 'neutral' }, { text: "Inflation data comes in slightly higher than expected.", impact: 0.99, type: 'neutral' }, { text: "{STOCK} CEO presents at industry conference.", impact: 1.00, type: 'neutral' },
+        ];
+        let pendingNewsImpact = null;
+
+        // --- DOM Elements ---
+        const instructionsScreen = document.getElementById('instructions-screen');
+        const difficultyScreen = document.getElementById('difficulty-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const stockTabsContainer = document.getElementById('stock-tabs');
+        const activeStockNameEl = document.getElementById('active-stock-name');
+        const stockPriceEl = document.getElementById('stock-price');
+        const priceChangeEl = document.getElementById('price-change');
+        const volatilityDisplay = document.getElementById('volatility-display');
+        const playerCashEl = document.getElementById('player-cash');
+        const playerSharesActiveEl = document.getElementById('player-shares-active');
+        const playerShortedActiveEl = document.getElementById('player-shorted-active');
+        const activeStockSharesLabel = document.getElementById('active-stock-shares-label');
+        const activeStockShortedLabel = document.getElementById('active-stock-shorted-label');
+        const activeStockActionLabel = document.getElementById('active-stock-action-label');
+        const playerProfitEl = document.getElementById('player-profit');
+        const tradeQuantityInput = document.getElementById('trade-quantity');
+        const messageLog = document.getElementById('message-log');
+        const shortButton = document.getElementById('short-button');
+        const coverButton = document.getElementById('cover-button');
+        const coverAllButton = document.getElementById('cover-all-button');
+        const newsPopup = document.getElementById('news-popup');
+        const newsContent = document.getElementById('news-content');
+        const reactionTimer = document.getElementById('reaction-timer');
+        const reactTimeLeft = document.getElementById('react-time-left');
+        const activeShortInfoEl = document.getElementById('active-short-info');
+        const activeShortAvgPriceEl = document.getElementById('active-short-avg-price');
+        const chartCanvas = document.getElementById('stock-chart');
+
+        // --- Chart Logic ---
+        function initializeChart() {
+            if (!chartCanvas) { console.error("Chart canvas not found!"); return; }
+            const ctx = chartCanvas.getContext('2d');
+            if (stockChart) { stockChart.destroy(); }
+            stockChart = new Chart(ctx, {
+                 type: 'line',
+                data: { labels: [], datasets: [{ label: 'Stock Price', data: [], borderColor: '#63b3ed', backgroundColor: 'rgba(99, 179, 237, 0.1)', borderWidth: 2, pointRadius: 0, tension: 0.1, fill: true }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { display: false }, grid: { color: 'rgba(255, 255, 255, 0.1)' } }, y: { beginAtZero: false, ticks: { color: '#a0aec0', callback: function(value) { return '$' + value.toFixed(2); } }, grid: { color: 'rgba(255, 255, 255, 0.1)' } } }, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.y !== null) { label += formatCurrency(context.parsed.y); } return label; } } } }, animation: { duration: 0 } }
+            });
+        }
+
+        function updateChart() {
+            if (!stockChart || !stocks[activeStockSymbol]) return;
+            const activeStock = stocks[activeStockSymbol];
+            const history = activeStock.history;
+            const maxChartPoints = 100;
+            const chartHistory = history.slice(-maxChartPoints);
+            stockChart.data.labels = chartHistory.map((_, index) => index);
+            stockChart.data.datasets[0].data = chartHistory.map(point => point.price);
+            stockChart.data.datasets[0].label = `${activeStock.name} Price`;
+            stockChart.update('none');
+        }
+
+
+        // --- Game Logic Functions ---
+        function showInstructionsScreen() {
+            clearInterval(gameInterval); clearTimeout(newsTimeout); clearInterval(reactionTimerInterval);
+            gameScreen.classList.add('hidden'); difficultyScreen.classList.add('hidden'); instructionsScreen.classList.remove('hidden');
+            newsPopup.classList.add('hidden');
+            if (stockChart) { stockChart.destroy(); stockChart = null; }
+            messageLog.innerHTML = '<p class="text-gray-400">Game log messages will appear here...</p>';
+        }
+
+        function showDifficultyScreen() {
+            instructionsScreen.classList.add('hidden'); difficultyScreen.classList.remove('hidden');
+            logMessage("Select a difficulty level to start.", "system");
+        }
+
+        function startGame(level) {
+            difficulty = level; const settings = difficulties[difficulty]; activeStockSymbols = settings.symbols;
+            cash = 10000; totalProfit = 0; pendingNewsImpact = null; clearTimeout(newsTimeout); clearInterval(reactionTimerInterval); newsPopup.classList.add('hidden');
+            activeStockSymbol = activeStockSymbols[0];
+            Object.keys(stocks).forEach(symbol => {
+                const stock = stocks[symbol];
+                if (symbol === 'TECH') stock.currentPrice = 100.00; else if (symbol === 'AGRO') stock.currentPrice = 50.00; else if (symbol === 'FIN') stock.currentPrice = 200.00;
+                stock.previousPrice = stock.currentPrice; stock.sharesOwned = 0; stock.shortedShares = 0; stock.shortEntryPriceAvg = 0; stock.history = [{ time: Date.now(), price: stock.currentPrice }]; stock.profitVolatilityMultiplier = 1.0; stock.isActive = activeStockSymbols.includes(symbol);
+            });
+            stockTabsContainer.innerHTML = '';
+            activeStockSymbols.forEach(symbol => {
+                const tab = document.createElement('button'); tab.textContent = symbol; tab.className = 'tab-button'; tab.id = `tab-${symbol}`; if (symbol === activeStockSymbol) tab.classList.add('active'); tab.onclick = () => selectStock(symbol); stockTabsContainer.appendChild(tab);
+            });
+            initializeChart(); updateUI();
+            difficultyScreen.classList.add('hidden'); gameScreen.classList.remove('hidden');
+            logMessage(`Game started on Level ${settings.level} (${settings.name}). Active Stocks: ${activeStockSymbols.join(', ')}. ${settings.allowShorting ? 'Shorting enabled.' : ''}`, "system");
+            clearInterval(gameInterval); gameInterval = setInterval(updateGame, 1500);
+        }
+
+        function selectStock(symbol) {
+            if (activeStockSymbol === symbol || !stocks[symbol]?.isActive) return;
+            activeStockSymbol = symbol;
+            document.querySelectorAll('.tab-button').forEach(tab => {
+                tab.classList.remove('active'); if (tab.id === `tab-${symbol}`) tab.classList.add('active');
+            });
+            updateUI(); updateChart(); logMessage(`Selected stock: ${symbol}`, "system");
+        }
+
+        function updateGame() {
+            const settings = difficulties[difficulty];
+            activeStockSymbols.forEach(symbol => {
+                const stock = stocks[symbol]; if (!stock) return;
+                stock.previousPrice = stock.currentPrice;
+                let randomFactor = (Math.random() - 0.5) * stock.baseVolatility * settings.volatilityMod * stock.profitVolatilityMultiplier;
+                let trendFactor = stock.trendBias * (Math.random() * 0.5 + 0.5);
+                stock.currentPrice += randomFactor + trendFactor; stock.currentPrice = Math.max(1.00, stock.currentPrice);
+                stock.history.push({ time: Date.now(), price: stock.currentPrice }); if (stock.history.length > 200) stock.history.shift();
+                let profitThreshold = 500 * activeStockSymbols.length; stock.profitVolatilityMultiplier = 1.0 + Math.floor(Math.max(0, totalProfit) / profitThreshold) * 0.2; stock.profitVolatilityMultiplier = Math.min(stock.profitVolatilityMultiplier, 5.0);
+            });
+            if (!pendingNewsImpact && Math.random() < 0.08 * activeStockSymbols.length) { triggerNewsEvent(); }
+            updateUI(); updateChart();
+            if (cash < -5000 * activeStockSymbols.length) { gameOver("You went bankrupt!"); }
+        }
+
+        function triggerNewsEvent() {
+            const targetSymbol = activeStockSymbols[Math.floor(Math.random() * activeStockSymbols.length)]; const eventTemplate = newsEvents[Math.floor(Math.random() * newsEvents.length)]; const settings = difficulties[difficulty]; const reactionTime = settings.reactionTime; // Uses updated reaction time
+            const newsText = eventTemplate.text.replace("{STOCK}", targetSymbol);
+            pendingNewsImpact = { symbol: targetSymbol, impact: eventTemplate.impact, text: newsText };
+            newsContent.textContent = newsText; newsPopup.classList.remove('hidden');
+            let timeLeft = reactionTime; reactionTimer.style.width = '100%'; reactTimeLeft.textContent = (timeLeft / 1000).toFixed(1); // Display initial time
+            clearInterval(reactionTimerInterval); reactionTimerInterval = setInterval(() => {
+                timeLeft -= 100; const percentage = Math.max(0, (timeLeft / reactionTime) * 100); reactionTimer.style.width = `${percentage}%`; reactTimeLeft.textContent = (Math.max(0, timeLeft) / 1000).toFixed(1); if (timeLeft <= 0) clearInterval(reactionTimerInterval);
+            }, 100);
+            logMessage(`NEWS (${targetSymbol}): ${newsText} - Market reacts in ${reactionTime / 1000}s`, "news");
+            clearTimeout(newsTimeout); newsTimeout = setTimeout(() => {
+                if (pendingNewsImpact) {
+                    const stock = stocks[pendingNewsImpact.symbol]; if (stock && stock.isActive) { stock.previousPrice = stock.currentPrice; stock.currentPrice *= pendingNewsImpact.impact; stock.currentPrice = Math.max(1.00, stock.currentPrice); logMessage(`Market reacted to news for ${pendingNewsImpact.symbol}: "${pendingNewsImpact.text}"`, "system"); stock.history.push({ time: Date.now(), price: stock.currentPrice }); if (stock.history.length > 200) stock.history.shift(); }
+                    pendingNewsImpact = null; newsPopup.classList.add('hidden'); clearInterval(reactionTimerInterval); updateUI(); updateChart();
+                }
+            }, reactionTime); // Uses updated reaction time
+        }
+
+        // --- Trading Functions ---
+         function buyShares() {
+            const stock = stocks[activeStockSymbol]; if (!stock || !stock.isActive) return;
+            const quantity = parseInt(tradeQuantityInput.value); if (isNaN(quantity) || quantity <= 0) { logMessage("Invalid quantity.", "error"); return; }
+            const cost = quantity * stock.currentPrice; if (cost > cash) { logMessage(`Not enough cash for ${quantity} ${stock.name}. Cost: ${formatCurrency(cost)}`, "error"); return; }
+            if (stock.shortedShares > 0) { logMessage(`Cannot buy ${stock.name} while short. Cover first.`, "error"); return; }
+            cash -= cost; stock.sharesOwned += quantity; updateTotalProfit(); logMessage(`Bought ${quantity} ${stock.name} @ ${formatCurrency(stock.currentPrice)}. Cost: ${formatCurrency(cost)}`, "buy"); updateUI();
+        }
+        function sellShares() {
+            const stock = stocks[activeStockSymbol]; if (!stock || !stock.isActive) return;
+            const quantity = parseInt(tradeQuantityInput.value); if (isNaN(quantity) || quantity <= 0) { logMessage("Invalid quantity.", "error"); return; }
+            if (quantity > stock.sharesOwned) { logMessage(`Not enough ${stock.name} shares. Own: ${stock.sharesOwned}`, "error"); return; }
+            const proceeds = quantity * stock.currentPrice; cash += proceeds; stock.sharesOwned -= quantity; updateTotalProfit(); logMessage(`Sold ${quantity} ${stock.name} @ ${formatCurrency(stock.currentPrice)}. Proceeds: ${formatCurrency(proceeds)}`, "sell"); updateUI();
+        }
+         function sellAllShares() {
+            const stock = stocks[activeStockSymbol]; if (!stock || !stock.isActive || stock.sharesOwned <= 0) { logMessage(`No ${activeStockSymbol} shares to sell.`, "info"); return; }
+            const quantity = stock.sharesOwned; const proceeds = quantity * stock.currentPrice; cash += proceeds; stock.sharesOwned = 0; updateTotalProfit(); logMessage(`Sold all ${quantity} ${stock.name} @ ${formatCurrency(stock.currentPrice)}. Proceeds: ${formatCurrency(proceeds)}`, "sell"); updateUI();
+         }
+         function shortShares() {
+             const stock = stocks[activeStockSymbol]; const settings = difficulties[difficulty]; if (!stock || !stock.isActive || !settings.allowShorting) { logMessage(`Shorting not allowed or ${activeStockSymbol} inactive.`, "error"); return; }
+             const quantity = parseInt(tradeQuantityInput.value); if (isNaN(quantity) || quantity <= 0) { logMessage("Invalid quantity.", "error"); return; }
+             if (stock.sharesOwned > 0) { logMessage(`Cannot short ${stock.name} while long. Sell first.`, "error"); return; }
+             const shortValue = quantity * stock.currentPrice; const marginRequired = shortValue * 0.2; if (cash < marginRequired) { logMessage(`Need ~${formatCurrency(marginRequired)} cash margin to short ${quantity} ${stock.name}.`, "error"); return; }
+             const proceeds = quantity * stock.currentPrice; cash += proceeds;
+             const currentShortValue = stock.shortedShares * stock.shortEntryPriceAvg; const newShortValue = quantity * stock.currentPrice; stock.shortedShares += quantity; stock.shortEntryPriceAvg = (currentShortValue + newShortValue) / stock.shortedShares;
+             updateTotalProfit(); logMessage(`Shorted ${quantity} ${stock.name} @ ${formatCurrency(stock.currentPrice)}.`, "short"); updateUI();
+         }
+         function coverShort() {
+             const stock = stocks[activeStockSymbol]; const settings = difficulties[difficulty]; if (!stock || !stock.isActive || !settings.allowShorting || stock.shortedShares <= 0) { logMessage(`Cannot cover ${activeStockSymbol}.`, "error"); return; }
+             const quantity = parseInt(tradeQuantityInput.value); if (isNaN(quantity) || quantity <= 0) { logMessage("Invalid quantity.", "error"); return; }
+             if (quantity > stock.shortedShares) { logMessage(`Cannot cover ${quantity} ${stock.name}. Shorted: ${stock.shortedShares}`, "error"); return; }
+             const cost = quantity * stock.currentPrice; if (cost > cash) { logMessage(`Not enough cash to cover ${quantity} ${stock.name}. Cost: ${formatCurrency(cost)}`, "error"); return; }
+             cash -= cost; stock.shortedShares -= quantity; const profitLoss = quantity * (stock.shortEntryPriceAvg - stock.currentPrice);
+             if (stock.shortedShares === 0) stock.shortEntryPriceAvg = 0;
+             updateTotalProfit(); logMessage(`Covered ${quantity} ${stock.name} short @ ${formatCurrency(stock.currentPrice)}. P/L: ${formatCurrency(profitLoss)}`, "cover"); updateUI();
+         }
+         function coverAllShort() {
+             const stock = stocks[activeStockSymbol]; const settings = difficulties[difficulty]; if (!stock || !stock.isActive || !settings.allowShorting || stock.shortedShares <= 0) { logMessage(`No ${activeStockSymbol} short to cover.`, "info"); return; }
+             const quantity = stock.shortedShares; const cost = quantity * stock.currentPrice; if (cost > cash) { logMessage(`Not enough cash to cover all ${quantity} ${stock.name}. Cost: ${formatCurrency(cost)}`, "error"); return; }
+             cash -= cost; const profitLoss = quantity * (stock.shortEntryPriceAvg - stock.currentPrice); stock.shortedShares = 0; stock.shortEntryPriceAvg = 0;
+             updateTotalProfit(); logMessage(`Covered all ${quantity} ${stock.name} short @ ${formatCurrency(stock.currentPrice)}. P/L: ${formatCurrency(profitLoss)}`, "cover"); updateUI();
+         }
+
+        // --- Utility Functions ---
+        function updateTotalProfit() {
+            let ownedValue = 0; let shortProfitLossTotal = 0;
+            activeStockSymbols.forEach(symbol => {
+                 const stock = stocks[symbol]; if (stock && stock.isActive) { ownedValue += stock.sharesOwned * stock.currentPrice; if (stock.shortedShares > 0) { shortProfitLossTotal += stock.shortedShares * (stock.shortEntryPriceAvg - stock.currentPrice); } }
+            });
+            const currentTotalValue = cash + ownedValue + shortProfitLossTotal; totalProfit = currentTotalValue - 10000;
+        }
+
+        function updateUI() {
+            const stock = stocks[activeStockSymbol]; const settings = difficulties[difficulty]; if (!stock) return;
+            activeStockNameEl.textContent = stock.name; stockPriceEl.textContent = formatCurrency(stock.currentPrice); const change = stock.currentPrice - stock.previousPrice; const percentChange = stock.previousPrice === 0 ? 0 : (change / stock.previousPrice) * 100; priceChangeEl.textContent = `${change >= 0 ? '+' : ''}${formatCurrency(change)} (${change >= 0 ? '+' : ''}${percentChange.toFixed(2)}%)`; priceChangeEl.className = 'text-lg font-medium text-right '; if (change > 0) priceChangeEl.classList.add('price-up'); else if (change < 0) priceChangeEl.classList.add('price-down'); else priceChangeEl.classList.add('price-neutral');
+            volatilityDisplay.textContent = stock.profitVolatilityMultiplier.toFixed(1);
+            if (stock.shortedShares > 0) { activeShortInfoEl.classList.remove('hidden'); activeShortAvgPriceEl.textContent = formatCurrency(stock.shortEntryPriceAvg); } else { activeShortInfoEl.classList.add('hidden'); }
+            playerCashEl.textContent = formatCurrency(cash); playerSharesActiveEl.textContent = stock.sharesOwned; playerShortedActiveEl.textContent = stock.shortedShares; activeStockSharesLabel.textContent = stock.name; activeStockShortedLabel.textContent = stock.name; activeStockActionLabel.textContent = stock.name;
+            updateTotalProfit(); playerProfitEl.textContent = formatCurrency(totalProfit); playerProfitEl.className = 'text-lg font-semibold '; if (totalProfit > 0) playerProfitEl.classList.add('price-up'); else if (totalProfit < 0) playerProfitEl.classList.add('price-down'); else playerProfitEl.classList.add('text-white');
+            shortButton.disabled = !settings.allowShorting || stock.sharesOwned > 0; coverButton.disabled = !settings.allowShorting || stock.shortedShares <= 0; coverAllButton.disabled = !settings.allowShorting || stock.shortedShares <= 0;
+        }
+
+        function logMessage(message, type = "info") {
+            const p = document.createElement('p'); const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); p.textContent = `[${timestamp}] ${message}`;
+            switch (type) { case 'buy': p.className = 'text-green-400'; break; case 'sell': p.className = 'text-red-400'; break; case 'short': p.className = 'text-purple-400'; break; case 'cover': p.className = 'text-indigo-400'; break; case 'news': p.className = 'text-yellow-400 font-semibold'; break; case 'error': p.className = 'text-red-500 font-semibold'; break; case 'system': p.className = 'text-blue-400'; break; default: p.className = 'text-gray-300'; }
+            if (messageLog.firstChild && messageLog.firstChild.textContent === "Game log messages will appear here...") { messageLog.innerHTML = ''; }
+            messageLog.insertBefore(p, messageLog.firstChild); while (messageLog.children.length > 50) { messageLog.removeChild(messageLog.lastChild); }
+        }
+
+        function formatCurrency(value) { if (typeof value !== 'number' || isNaN(value)) { return '$?.??'; } return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' }); }
+
+        function gameOver(message) {
+            clearInterval(gameInterval); clearTimeout(newsTimeout); clearInterval(reactionTimerInterval); logMessage(`GAME OVER: ${message}`, "error"); alert(`Game Over!\n${message}\n\nFinal Profit: ${formatCurrency(totalProfit)}\n\nSelect a difficulty to play again.`); showInstructionsScreen();
+        }
+
+        // --- Keyboard Input Handler ---
+        function handleKeyPress(event) {
+            if (gameScreen.classList.contains('hidden')) return;
+             if (document.activeElement === tradeQuantityInput && !event.key.startsWith('Arrow')) return;
+
+            switch (event.key) {
+                case 'ArrowLeft':
+                    event.preventDefault(); if (activeStockSymbols.length > 1) { const currentIndex = activeStockSymbols.indexOf(activeStockSymbol); const prevIndex = (currentIndex - 1 + activeStockSymbols.length) % activeStockSymbols.length; selectStock(activeStockSymbols[prevIndex]); } break;
+                case 'ArrowRight':
+                     event.preventDefault(); if (activeStockSymbols.length > 1) { const currentIndex = activeStockSymbols.indexOf(activeStockSymbol); const nextIndex = (currentIndex + 1) % activeStockSymbols.length; selectStock(activeStockSymbols[nextIndex]); } break;
+                case 'b': case 'B': buyShares(); break;
+                case 's': case 'S': sellShares(); break;
+                case 'h': case 'H': if (!shortButton.disabled) shortShares(); else logMessage("Cannot short (check difficulty/position).", "error"); break;
+                case 'c': case 'C': if (!coverButton.disabled) coverShort(); else logMessage("Cannot cover (no short position).", "error"); break;
+            }
+        }
+
+        // --- Initial Setup ---
+        window.addEventListener('keydown', handleKeyPress);
+        showInstructionsScreen();
+
+    </script>
+
+</body>
+</html>
